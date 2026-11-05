@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бюджет — грамотность</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --ink:#2b2f33; --muted:#6d7672; --line:#e6eeea; --bg:#f3f7f5;
+  --card:#fff; --mint:#1f9d78; --mint-soft:#e7f6f1; --red:#d64545; --red-soft:#fdecec;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Segoe UI",sans-serif}
+.app{width:min(980px,100%);margin:0 auto;padding:20px 16px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:22px;margin:0;font-weight:700}
+h2{margin:0 0 8px;font-size:18px}
+.month{display:flex;align-items:center;gap:8px}
+.month button{
+  height:40px;border:0;border-radius:12px;background:var(--card);color:var(--ink);
+  font:inherit;font-weight:600;cursor:pointer;padding:0 12px;box-shadow:0 1px 2px rgba(20,30,25,.06)
+}
+.month strong{min-width:150px;text-align:center}
+.status{font-weight:700;color:var(--mint)}
+.status.over{color:var(--red)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.tiles.three{grid-template-columns:repeat(3,1fr);margin:0}
+.tile{background:var(--card);border-radius:16px;padding:14px 14px 12px}
+.tile.soft{background:var(--bg)}
+.tile span{display:block;color:var(--muted);font-size:13px}
+.tile b{display:block;margin-top:6px;font-size:20px}
+.limits{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+input,select{
+  width:100%;height:44px;border:1px solid var(--line);border-radius:12px;padding:0 12px;
+  font:inherit;background:#fff;color:var(--ink)
+}
+.panel{margin-bottom:14px}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:14px}
+.chart-frame{position:relative;height:280px}
+.feeds{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.feeds .card{margin-bottom:0}
+.row{display:flex;gap:8px;margin-bottom:10px}
+.row input{flex:1}
+.row select{width:88px;flex:none}
+.row input[type="date"]{width:148px;flex:none}
+.row button{
+  height:44px;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer;padding:0 14px
+}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;background:var(--bg);border-radius:12px;padding:10px 12px}
+.item small{color:var(--muted)}
+.item b{text-align:right}
+.del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:0;justify-self:end}
+.empty{color:var(--muted);font-size:14px;margin:0}
+.advice p{margin:0 0 8px}
+.advice p:last-child{margin:0}
+.goal-bar{height:8px;margin-top:8px;border-radius:99px;background:#e6eeea;overflow:hidden}
+.goal-bar i{display:block;height:100%;width:0;background:var(--mint);border-radius:99px}
+.reset{
+  display:block;margin:28px auto 8px;height:44px;padding:0 18px;border-radius:12px;
+  border:1px solid var(--red);background:var(--red-soft);color:var(--red);font:inherit;font-weight:700;cursor:pointer
+}
+@media(max-width:800px){
+  header{flex-direction:column;align-items:flex-start}
+  .month{width:auto;max-width:100%}
+  .month button{width:40px;padding:0}
+  .month button span{display:none}
+  .month strong{min-width:0;font-size:15px}
+  .tiles,.tiles.three,.limits,.panel,.feeds{grid-template-columns:1fr}
+  .row{flex-wrap:wrap}
+  .row input[name="title"]{flex:1 0 100%}
+  .row input[type="date"]{flex:1;width:auto}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Мой бюджет</h1>
+      <div id="status" class="status">В пределах лимита</div>
+    </div>
+    <div class="month">
+      <button type="button" id="prev" aria-label="Предыдущий месяц">◀<span> Назад</span></button>
+      <strong id="month-label"></strong>
+      <button type="button" id="next" aria-label="Следующий месяц"><span>Вперед </span>▶</button>
+    </div>
+  </header>
+
+  <section class="tiles">
+    <div class="tile"><span>Всего пришло</span><b id="in-sum">0 ₽</b></div>
+    <div class="tile"><span>Траты за месяц</span><b id="out-sum">0 ₽</b></div>
+    <div class="tile"><span>Остаток на балансе</span><b id="balance">0 ₽</b></div>
+    <div class="tile"><span id="goal-title">Осталось накопить до цели</span><b id="goal-left">—</b></div>
+  </section>
+
+  <section class="card">
+    <h2>Правило 50/30/20</h2>
+    <p class="empty" id="env-note" style="margin-bottom:10px">Доли считаются от доходов выбранного месяца.</p>
+    <div class="tiles three">
+      <div class="tile soft"><span>50% — обязательные траты</span><b id="env-need">0 ₽</b></div>
+      <div class="tile soft"><span>30% — желания</span><b id="env-want">0 ₽</b></div>
+      <div class="tile soft"><span>20% — накопления</span><b id="env-save">0 ₽</b></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Финансовая подушка</h2>
+    <p id="cushion" style="margin:0 0 6px;font-weight:700">Ваша финансовая подушка сформирована на 0%</p>
+    <p class="empty" id="cushion-note"></p>
+  </section>
+
+  <section class="card advice">
+    <h2>Умный советник</h2>
+    <p id="advice-day"></p>
+    <p id="advice-month"></p>
+    <p id="advice-year"></p>
+  </section>
+
+  <section class="limits">
+    <div>
+      <label for="limit">Лимит трат на месяц, ₽</label>
+      <input id="limit" type="number" min="0" step="1" placeholder="Например, 15000">
+    </div>
+    <div>
+      <label for="goal">Цель накопления за этот месяц, ₽</label>
+      <input id="goal" type="number" min="0" step="1" placeholder="Например, 20000">
+      <div class="goal-bar" aria-hidden="true"><i id="goal-bar"></i></div>
+      <p class="empty" id="goal-hint" style="margin:6px 0 0"></p>
+    </div>
+  </section>
+  <p class="empty" id="rate-note" style="margin:-6px 0 14px">Загружаю курс ЦБ…</p>
+
+  <section class="panel">
+    <div class="card chart-box">
+      <h2>Расходы по категориям</h2>
+      <div class="chart-frame"><canvas id="chart"></canvas></div>
+      <p class="empty" id="chart-note">Кольцо заполнится, когда добавите траты.</p>
+    </div>
+  </section>
+
+  <section class="feeds">
+    <div class="card">
+      <h2>Доходы</h2>
+      <form class="row" id="in-form">
+        <input name="title" placeholder="Источник" required>
+        <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
+        <select name="currency" aria-label="Валюта">
+          <option value="RUB">₽</option>
+          <option value="USD">$</option>
+          <option value="EUR">€</option>
+        </select>
+        <input name="date" type="date" aria-label="День дохода" required>
+        <button type="submit">+</button>
+      </form>
+      <div class="list" id="in-list"></div>
+    </div>
+    <div class="card">
+      <h2>Расходы</h2>
+      <form class="row" id="out-form">
+        <input name="title" placeholder="На что" required>
+        <select name="category" aria-label="Категория">
+          <option>Еда</option>
+          <option>Транспорт</option>
+          <option>Подписки</option>
+          <option>Одежда</option>
+          <option>Развлечения</option>
+          <option>Другое</option>
+        </select>
+        <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
+        <select name="currency" aria-label="Валюта">
+          <option value="RUB">₽</option>
+          <option value="USD">$</option>
+          <option value="EUR">€</option>
+        </select>
+        <input name="date" type="date" aria-label="День расхода" required>
+        <button type="submit">+</button>
+      </form>
+      <div class="list" id="out-list"></div>
+    </div>
+  </section>
+  <button type="button" id="reset" class="reset">Сбросить всё</button>
+</div>
+<script>
+const FALLBACK = { RUB: 1, USD: 90, EUR: 100 };
+let rates = { ...FALLBACK };
+const CATS = ["Еда","Транспорт","Подписки","Одежда","Развлечения","Другое"];
+const COLORS = ["#e07a3d","#3b82d6","#1f9d78","#d4527a","#7c5cbf","#e0b325"];
+const KEY = "teen-budget-v2";
+const LEGACY = "teen-budget-v1";
+const money = n => new Intl.NumberFormat("ru-RU",{style:"currency",currency:"RUB",maximumFractionDigits:0}).format(Math.round(n));
+const sign = c => c === "USD" ? "$" : c === "EUR" ? "€" : "₽";
+
+let cursor = new Date();
+cursor.setDate(1);
+let db = load();
+let chart;
+
+function pad(n){ return String(n).padStart(2,"0"); }
+function isoDate(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+function keyOf(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1); }
+function daysInMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); }
+function monthTitle(key){
+  const [y,m] = key.split("-").map(Number);
+  const label = new Date(y, m-1, 1).toLocaleString("ru-RU",{month:"long", year:"numeric"});
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+function showDate(iso){
+  if (!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return d + "." + m + "." + y;
+}
+
+function load(){
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) return JSON.parse(saved);
+    const legacy = localStorage.getItem(LEGACY);
+    if (legacy) return JSON.parse(legacy);
+  } catch {}
+  return { months:{} };
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+function blankMonth(){ return { incomes:[], expenses:[], limit:"", goal:"" }; }
+function ensure(key){
+  if (!db.months[key]) db.months[key] = blankMonth();
+  return db.months[key];
+}
+function month(){ return ensure(keyOf(cursor)); }
+function rub(item){ return Number(item.amount) * (rates[item.currency] || 1); }
+function totals(m){
+  const income = (m.incomes||[]).reduce((s,i)=>s+rub(i),0);
+  const spent = (m.expenses||[]).reduce((s,i)=>s+rub(i),0);
+  return { income, spent, balance: income - spent };
+}
+function topCategory(expenses){
+  let best = "", sum = 0;
+  for (const cat of CATS){
+    const s = expenses.filter(e => e.category === cat).reduce((a,e)=>a+rub(e),0);
+    if (s > sum){ sum = s; best = cat; }
+  }
+  return best;
+}
+
+function render(){
+  const m = month();
+  document.getElementById("month-label").textContent = monthTitle(keyOf(cursor));
+  document.getElementById("limit").value = m.limit;
+  document.getElementById("goal").value = m.goal;
+
+  const { income, spent, balance } = totals(m);
+  const goal = Number(m.goal) || 0;
+  const saved = Math.max(0, balance);
+  const left = goal ? Math.max(0, goal - saved) : 0;
+  document.getElementById("in-sum").textContent = money(income);
+  document.getElementById("out-sum").textContent = money(spent);
+  document.getElementById("balance").textContent = money(balance);
+  const goalTitle = document.getElementById("goal-title");
+  const goalLeft = document.getElementById("goal-left");
+  const goalHint = document.getElementById("goal-hint");
+  const bar = document.getElementById("goal-bar");
+  if (!goal){
+    goalTitle.textContent = "Осталось накопить до цели";
+    goalLeft.textContent = "—";
+    goalHint.textContent = "";
+    bar.style.width = "0";
+  } else if (balance < 0){
+    goalTitle.textContent = "Осталось накопить до цели";
+    goalLeft.textContent = money(goal);
+    goalHint.textContent = "Остаток " + money(balance) + ". К цели пока ничего не зачтено: траты больше доходов. Не хватает всей цели, " + money(goal) + ".";
+    bar.style.width = "0";
+  } else if (left === 0){
+    goalTitle.textContent = "Цель на месяц собрана";
+    goalLeft.textContent = "готово";
+    goalHint.textContent = "Остаток " + money(balance) + " уже покрывает цель " + money(goal) + ".";
+    bar.style.width = "100%";
+  } else {
+    goalTitle.textContent = "Осталось накопить до цели";
+    goalLeft.textContent = money(left);
+    goalHint.textContent = "Собрано " + money(saved) + " из " + money(goal) + ". Добавите доход — полоска вырастет, добавите расход — уменьшится.";
+    bar.style.width = Math.min(100, saved / goal * 100) + "%";
+  }
+
+  document.getElementById("env-need").textContent = money(income * 0.5);
+  document.getElementById("env-want").textContent = money(income * 0.3);
+  document.getElementById("env-save").textContent = money(income * 0.2);
+  document.getElementById("env-note").textContent = income
+    ? "От доходов этого месяца, " + money(income) + ", получились три конверта."
+    : "Когда появится доход, сумма сразу разделится на 50%, 30% и 20%.";
+
+  paintCushion();
+  paintAdvice(m, spent);
+
+  const limit = Number(m.limit) || 0;
+  const status = document.getElementById("status");
+  const over = limit > 0 && spent > limit;
+  status.className = "status" + (over ? " over" : "");
+  status.textContent = over ? "⚠️ ПЕРЕРАСХОД!" : "В пределах лимита";
+
+  paintList("in-list", m.incomes, false);
+  paintList("out-list", m.expenses, true);
+  paintChart(m);
+  save();
+}
+
+function paintCushion(){
+  const rows = Object.keys(db.months).map(k => totals(db.months[k])).filter(t => t.income || t.spent);
+  const note = document.getElementById("cushion-note");
+  const line = document.getElementById("cushion");
+  if (!rows.length){
+    line.textContent = "Ваша финансовая подушка сформирована на 0%";
+    note.textContent = "Пока нет месяцев с доходами или тратами. Цель подушки — три таких месяца.";
+    return;
+  }
+  const avg = rows.reduce((s,t)=>s+t.spent,0) / rows.length;
+  const target = avg * 3;
+  const saved = rows.reduce((s,t)=>s+t.balance,0);
+  const pct = target > 0 ? Math.max(0, Math.round(saved / target * 100)) : 0;
+  line.textContent = "Ваша финансовая подушка сформирована на " + pct + "%";
+  note.textContent = "Цель: " + money(target) + " — это средние траты " + money(avg) + " × 3. Сейчас накоплено " + money(Math.max(0, saved)) + ".";
+}
+
+function paintAdvice(m, spent){
+  const now = new Date();
+  const todayKey = keyOf(now);
+  const todayIso = isoDate(now);
+  const todayMonth = db.months[todayKey] || blankMonth();
+  const todaySpent = todayMonth.expenses.filter(e => e.date === todayIso).reduce((s,e)=>s+rub(e),0);
+  const todayMonthSpent = totals(todayMonth).spent;
+  const avgDay = todayMonthSpent / daysInMonth(now);
+  const day = document.getElementById("advice-day");
+  if (todaySpent > 0 && avgDay > 0 && todaySpent >= avgDay * 1.2){
+    day.textContent = "Сегодня расходы выше обычного. Рекомендуем отложить крупные покупки.";
+  } else if (todaySpent > 0){
+    day.textContent = "Сегодня расходы в обычном темпе: " + money(todaySpent) + ".";
+  } else {
+    day.textContent = "Сегодня расходов пока нет.";
+  }
+
+  const monthLine = document.getElementById("advice-month");
+  const limit = Number(m.limit) || 0;
+  const top = topCategory(m.expenses);
+  const sameMonth = keyOf(cursor) === todayKey;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const past = cursor < monthStart;
+  if (!limit){
+    monthLine.textContent = "Укажите лимит трат, чтобы увидеть прогноз на месяц.";
+  } else if (!spent){
+    monthLine.textContent = "В этом месяце расходов пока нет.";
+  } else if (sameMonth){
+    const daily = spent / now.getDate();
+    if (spent >= limit){
+      monthLine.textContent = "Лимит уже исчерпан. Обратите внимание на топ-категорию расходов: " + (top || "—") + ".";
+    } else if (daily * daysInMonth(now) > limit){
+      const daysLeft = Math.max(1, Math.ceil((limit - spent) / daily));
+      monthLine.textContent = "При таком темпе лимит исчерпается через " + daysLeft + " дн. Обратите внимание на топ-категорию расходов: " + (top || "—") + ".";
+    } else {
+      monthLine.textContent = "При таком темпе лимит на месяц сохранится. Топ-категория расходов: " + (top || "—") + ".";
+    }
+  } else if (past){
+    monthLine.textContent = spent > limit
+      ? "В этом месяце лимит был превышен. Топ-категория расходов: " + (top || "—") + "."
+      : "В этом месяце уложились в лимит. Топ-категория расходов: " + (top || "—") + ".";
+  } else {
+    monthLine.textContent = "Этот месяц ещё не начался.";
+  }
+
+  const year = String(cursor.getFullYear());
+  const yearKeys = Object.keys(db.months).filter(k => k.startsWith(year + "-"));
+  const yearLine = document.getElementById("advice-year");
+  if (!yearKeys.length){
+    yearLine.textContent = "За " + year + " год записей пока нет.";
+    return;
+  }
+  let bestKey = "", bestSpent = Infinity, net = 0, any = false;
+  for (const k of yearKeys){
+    const t = totals(db.months[k]);
+    if (!(t.income || t.spent)) continue;
+    any = true;
+    net += t.balance;
+    if (t.spent < bestSpent){ bestSpent = t.spent; bestKey = k; }
+  }
+  if (!any){
+    yearLine.textContent = "За " + year + " год записей пока нет.";
+    return;
+  }
+  yearLine.textContent = "Самый экономный период: " + monthTitle(bestKey) + ", траты " + money(bestSpent) + ". Чистые накопления за год: " + money(net) + ".";
+}
+
+function paintList(id, items, isOut){
+  const box = document.getElementById(id);
+  if (!items.length){ box.innerHTML = '<p class="empty">Пока пусто</p>'; return; }
+  box.innerHTML = items.map(item => `
+    <div class="item">
+      <div>${escapeHtml(item.title)}${item.date ? `<br><small>${showDate(item.date)}</small>` : ""}${isOut ? `<br><small>${escapeHtml(item.category)}</small>` : ""}</div>
+      <b>${item.amount} ${sign(item.currency)}<br><small>${money(rub(item))}</small></b>
+      <button class="del" data-id="${item.id}" data-kind="${isOut ? "expenses" : "incomes"}">Удалить</button>
+    </div>`).join("");
+}
+
+let chartEmpty = false;
+const emptyRing = {
+  id: "emptyRing",
+  afterDraw(c){
+    if (!chartEmpty) return;
+    const arc = c.getDatasetMeta(0).data[0];
+    if (!arc) return;
+    const ctx = c.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#b7c9c2";
+    ctx.arc(arc.x, arc.y, (arc.outerRadius + arc.innerRadius) / 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+function paintChart(m){
+  const sums = CATS.map(cat => m.expenses.filter(e => e.category === cat).reduce((s,e)=>s+rub(e),0));
+  const empty = !sums.some(n => n > 0);
+  chartEmpty = empty;
+  document.getElementById("chart-note").hidden = !empty;
+  const data = {
+    labels: CATS,
+    datasets: [{
+      data: empty ? CATS.map(() => 1) : sums,
+      backgroundColor: empty ? "transparent" : COLORS,
+      borderColor: "transparent",
+      borderWidth: 0
+    }]
+  };
+  const legend = {
+    display: true,
+    position: "right",
+    labels: {
+      generateLabels: () => CATS.map((text, i) => ({
+        text, fillStyle: COLORS[i], strokeStyle: COLORS[i], lineWidth: 0, hidden: false, index: i, datasetIndex: 0
+      }))
+    }
+  };
+  if (!chart){
+    chart = new Chart(document.getElementById("chart"), {
+      type: "doughnut",
+      data,
+      plugins: [emptyRing],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: { legend, tooltip: { enabled: !empty } }
+      }
+    });
+  } else {
+    chart.data = data;
+    chart.options.plugins.tooltip.enabled = !empty;
+    chart.update();
+  }
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+function add(kind, data){
+  const key = data.date.slice(0,7);
+  ensure(key)[kind].unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), ...data });
+  const [y,m] = key.split("-").map(Number);
+  cursor = new Date(y, m-1, 1);
+  render();
+}
+
+function bindForm(id, kind, extra){
+  document.getElementById(id).addEventListener("submit", e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    add(kind, { title:f.get("title").trim(), amount:f.get("amount"), currency:f.get("currency"), date:f.get("date"), ...extra(f) });
+    e.target.reset();
+    e.target.date.value = isoDate(new Date());
+  });
+}
+bindForm("in-form", "incomes", () => ({}));
+bindForm("out-form", "expenses", f => ({ category: f.get("category") }));
+
+document.getElementById("in-list").addEventListener("click", onDelete);
+document.getElementById("out-list").addEventListener("click", onDelete);
+function onDelete(e){
+  const btn = e.target.closest(".del");
+  if (!btn) return;
+  const question = btn.dataset.kind === "expenses" ? "Удалить эту трату?" : "Удалить этот доход?";
+  if (!confirm(question)) return;
+  const m = month();
+  m[btn.dataset.kind] = m[btn.dataset.kind].filter(x => x.id !== btn.dataset.id);
+  render();
+}
+document.getElementById("prev").onclick = () => { cursor.setMonth(cursor.getMonth()-1); render(); };
+document.getElementById("next").onclick = () => { cursor.setMonth(cursor.getMonth()+1); render(); };
+document.getElementById("limit").addEventListener("input", e => { month().limit = e.target.value; render(); });
+document.getElementById("goal").addEventListener("input", e => { month().goal = e.target.value; render(); });
+document.getElementById("reset").onclick = () => {
+  if (!confirm("Сбросить все доходы, расходы, лимиты и цели?")) return;
+  db = { months: {} };
+  save();
+  render();
+};
+
+document.querySelectorAll('input[type="date"]').forEach(el => { el.value = isoDate(new Date()); });
+
+async function loadCbr(){
+  const note = document.getElementById("rate-note");
+  try {
+    const res = await fetch("https://www.cbr-xml-daily.ru/daily_json.js");
+    if (!res.ok) throw new Error("status");
+    const data = await res.json();
+    rates.USD = data.Valute.USD.Value;
+    rates.EUR = data.Valute.EUR.Value;
+    const day = new Date(data.Date).toLocaleDateString("ru-RU");
+    note.textContent = "Курс ЦБ на " + day + ": 1 $ = " + rates.USD.toLocaleString("ru-RU") + " ₽, 1 € = " + rates.EUR.toLocaleString("ru-RU") + " ₽.";
+  } catch {
+    rates = { ...FALLBACK };
+    note.textContent = "Курс ЦБ не загрузился. Пока 1 $ = 90 ₽ и 1 € = 100 ₽.";
+  }
+  render();
+}
+loadCbr();
+</script>
+</body>
+</html>
