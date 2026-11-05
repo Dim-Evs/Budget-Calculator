@@ -55,7 +55,7 @@ input,select{
 .item .name{flex:1;min-width:0}
 .item small{color:var(--muted);white-space:nowrap}
 .item b{white-space:nowrap}
-.del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:0;flex:none}
+.del{border:0;background:transparent;color:var(--red);cursor:pointer;font-size:20px;line-height:1;font-weight:700;padding:0 2px;flex:none}
 .empty{color:var(--muted);font-size:14px;margin:0}
 .advice p{margin:0 0 8px}
 .advice p:last-child{margin:0}
@@ -408,7 +408,7 @@ function paintList(id, items, isOut){
       ${item.date ? `<small>${showDate(item.date)}</small>` : ""}
       ${isOut ? `<small>${escapeHtml(item.category)}</small>` : ""}
       <b>${item.amount} ${sign(item.currency)}</b>
-      <button class="del" data-id="${item.id}" data-kind="${isOut ? "expenses" : "incomes"}">Удалить</button>
+      <button class="del" data-id="${item.id}" data-kind="${isOut ? "expenses" : "incomes"}" aria-label="Удалить">×</button>
     </div>`).join("");
 }
 
