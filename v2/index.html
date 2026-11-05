@@ -51,10 +51,11 @@ input,select{
   height:44px;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer;padding:0 14px
 }
 .list{display:flex;flex-direction:column;gap:8px}
-.item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;background:var(--bg);border-radius:12px;padding:10px 12px}
-.item small{color:var(--muted)}
-.item b{text-align:right}
-.del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:0;justify-self:end}
+.item{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:12px;padding:6px 10px}
+.item .name{flex:1;min-width:0}
+.item small{color:var(--muted);white-space:nowrap}
+.item b{white-space:nowrap}
+.del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:0;flex:none}
 .empty{color:var(--muted);font-size:14px;margin:0}
 .advice p{margin:0 0 8px}
 .advice p:last-child{margin:0}
@@ -403,8 +404,10 @@ function paintList(id, items, isOut){
   if (!items.length){ box.innerHTML = '<p class="empty">Пока пусто</p>'; return; }
   box.innerHTML = items.map(item => `
     <div class="item">
-      <div>${escapeHtml(item.title)}${item.date ? `<br><small>${showDate(item.date)}</small>` : ""}${isOut ? `<br><small>${escapeHtml(item.category)}</small>` : ""}</div>
-      <b>${item.amount} ${sign(item.currency)}<br><small>${money(rub(item))}</small></b>
+      <div class="name">${escapeHtml(item.title)}</div>
+      ${item.date ? `<small>${showDate(item.date)}</small>` : ""}
+      ${isOut ? `<small>${escapeHtml(item.category)}</small>` : ""}
+      <b>${item.amount} ${sign(item.currency)}</b>
       <button class="del" data-id="${item.id}" data-kind="${isOut ? "expenses" : "incomes"}">Удалить</button>
     </div>`).join("");
 }
