@@ -42,9 +42,11 @@ input,select{
 .feeds{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .feeds .card{margin-bottom:0}
 .row{display:flex;gap:8px;margin-bottom:10px}
-.row input{flex:1}
+.row input{flex:1;min-width:0}
 .row select{width:88px;flex:none}
+.row select[name="currency"]{width:max-content;padding-right:4px}
 .row input[type="date"]{width:148px;flex:none}
+.row.title-row input{flex:1 0 100%}
 .row button{
   height:44px;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer;padding:0 14px
 }
@@ -70,7 +72,6 @@ input,select{
   .month strong{min-width:0;font-size:15px}
   .tiles,.tiles.three,.limits,.panel,.feeds{grid-template-columns:1fr}
   .row{flex-wrap:wrap}
-  .row input[name="title"]{flex:1 0 100%}
   .row input[type="date"]{flex:1;width:auto}
 }
 </style>
@@ -144,8 +145,11 @@ input,select{
   <section class="feeds">
     <div class="card">
       <h2>Доходы</h2>
-      <form class="row" id="in-form">
-        <input name="title" placeholder="Источник" required>
+      <form id="in-form">
+        <div class="row title-row">
+          <input name="title" placeholder="Источник" required>
+        </div>
+        <div class="row">
         <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
         <select name="currency" aria-label="Валюта">
           <option value="RUB">₽</option>
@@ -154,13 +158,17 @@ input,select{
         </select>
         <input name="date" type="date" aria-label="День дохода" required>
         <button type="submit">+</button>
+        </div>
       </form>
       <div class="list" id="in-list"></div>
     </div>
     <div class="card">
       <h2>Расходы</h2>
-      <form class="row" id="out-form">
-        <input name="title" placeholder="На что" required>
+      <form id="out-form">
+        <div class="row title-row">
+          <input name="title" placeholder="На что" required>
+        </div>
+        <div class="row">
         <select name="category" aria-label="Категория">
           <option>Еда</option>
           <option>Транспорт</option>
@@ -177,6 +185,7 @@ input,select{
         </select>
         <input name="date" type="date" aria-label="День расхода" required>
         <button type="submit">+</button>
+        </div>
       </form>
       <div class="list" id="out-list"></div>
     </div>
