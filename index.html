@@ -330,7 +330,8 @@ document.getElementById("out-list").addEventListener("click", onDelete);
 function onDelete(e){
   const btn = e.target.closest(".del");
   if (!btn) return;
-  if (btn.dataset.kind === "expenses" && !confirm("Удалить эту трату?")) return;
+  const question = btn.dataset.kind === "expenses" ? "Удалить эту трату?" : "Удалить этот доход?";
+  if (!confirm(question)) return;
   const m = month();
   m[btn.dataset.kind] = m[btn.dataset.kind].filter(x => x.id !== btn.dataset.id);
   render();
