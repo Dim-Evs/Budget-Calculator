@@ -41,12 +41,12 @@ input,select{
 .chart-frame{position:relative;height:280px}
 .feeds{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .feeds .card{margin-bottom:0}
-.row{display:flex;gap:8px;margin-bottom:10px}
+.row{display:flex;flex-wrap:nowrap;gap:8px;margin-bottom:10px}
 .row input{flex:1;min-width:0}
 .row select{width:88px;flex:none}
 .row select[name="currency"]{width:max-content;padding-right:4px}
-.row.action-row input[type="date"]{flex:1;width:auto}
-.row.action-row button{flex:none}
+.row input[type="date"]{width:148px;flex:none}
+.action-row{display:flex;gap:8px;flex:none}
 .row.title-row input{flex:1 0 100%}
 .row button{
   height:44px;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer;padding:0 14px
@@ -75,7 +75,8 @@ input,select{
   .tiles,.tiles.three,.limits,.panel,.feeds{grid-template-columns:1fr}
   .row{flex-wrap:wrap}
   .row select[name="category"]{width:100%;flex:1 0 100%}
-  .row.action-row input[type="date"]{flex:1 1 auto;min-width:0}
+  .action-row{display:flex;flex:1 0 100%;gap:8px}
+  .action-row input[type="date"]{flex:1;width:auto;min-width:0}
 }
 </style>
 </head>
@@ -159,10 +160,10 @@ input,select{
             <option value="USD">$</option>
             <option value="EUR">€</option>
           </select>
-        </div>
-        <div class="row action-row">
-          <input name="date" type="date" aria-label="День дохода" required>
-          <button type="submit">+</button>
+          <div class="action-row">
+            <input name="date" type="date" aria-label="День дохода" required>
+            <button type="submit">+</button>
+          </div>
         </div>
       </form>
       <div class="list" id="in-list"></div>
@@ -188,10 +189,10 @@ input,select{
             <option value="USD">$</option>
             <option value="EUR">€</option>
           </select>
-        </div>
-        <div class="row action-row">
-          <input name="date" type="date" aria-label="День расхода" required>
-          <button type="submit">+</button>
+          <div class="action-row">
+            <input name="date" type="date" aria-label="День расхода" required>
+            <button type="submit">+</button>
+          </div>
         </div>
       </form>
       <div class="list" id="out-list"></div>
