@@ -262,10 +262,24 @@ async function postGoogle(body){
   if (!googleOn()) return;
   await fetch(googleUrl(), {
     method: "POST",
+    mode: "no-cors",
     redirect: "follow",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({ password: googlePass(), ...body })
   });
+}
+async function pushSnapshot(snapshot){
+  const months = snapshot.months || {};
+  for (const key of Object.keys(months)){
+    const box = months[key];
+    if (box.limit || box.goal) await postGoogle({ action: "month", month: key, limit: box.limit || "", goal: box.goal || "" });
+    for (const item of box.incomes || []){
+      await postGoogle({ action: "add", item: { id: item.id, date: item.date, type: "доход", title: item.title, category: "", amount: item.amount, currency: item.currency } });
+    }
+    for (const item of box.expenses || []){
+      await postGoogle({ action: "add", item: { id: item.id, date: item.date, type: "расход", title: item.title, category: item.category || "", amount: item.amount, currency: item.currency } });
+    }
+  }
 }
 async function pullGoogle(){
   const res = await fetch(googleUrl() + "?password=" + encodeURIComponent(googlePass()));
@@ -597,8 +611,15 @@ document.getElementById("google-form").addEventListener("submit", async e => {
   localStorage.setItem(GURL, document.getElementById("google-url").value.trim());
   localStorage.setItem(GPASS, document.getElementById("google-pass").value);
   note.textContent = "Подключаю…";
+  const local = JSON.parse(JSON.stringify(db));
   try {
     await pullGoogle();
+    const remoteEmpty = !Object.values(db.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
+    const localHas = Object.values(local.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
+    if (remoteEmpty && localHas){
+      await pushSnapshot(local);
+      await pullGoogle();
+    }
     note.textContent = "Подключено. Новые записи попадают в таблицу.";
   } catch (err) {
     note.textContent = "Не подключилось: " + err.message;
@@ -627,8 +648,15 @@ loadCbr().then(async () => {
   if (googleUrl()) document.getElementById("google-url").value = googleUrl();
   if (googlePass()) document.getElementById("google-pass").value = googlePass();
   if (!googleOn()) return;
+  const local = JSON.parse(JSON.stringify(db));
   try {
     await pullGoogle();
+    const remoteEmpty = !Object.values(db.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
+    const localHas = Object.values(local.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
+    if (remoteEmpty && localHas){
+      await pushSnapshot(local);
+      await pullGoogle();
+    }
     document.getElementById("google-note").textContent = "Подключено. Новые записи попадают в таблицу.";
   } catch (err) {
     document.getElementById("google-note").textContent = "Не подключилось: " + err.message;
