@@ -191,6 +191,18 @@ input,select{
       <div class="list" id="out-list"></div>
     </div>
   </section>
+  <section class="card">
+    <h2>Таблица Google</h2>
+    <p class="empty">Один раз вставьте адрес и пароль. После этого телефон и компьютер показывают один бюджет.</p>
+    <form id="google-form">
+      <label for="google-url">Адрес</label>
+      <input id="google-url" type="url" required value="https://script.google.com/macros/s/AKfycbwSX4WugnhNJ7oh_u9AjvkUzutsyGz_Tm6l9q06uJ61iAC7RMNTpxHGJ-qKmsa2JeIZOw/exec">
+      <label for="google-pass" style="margin-top:10px">Пароль</label>
+      <input id="google-pass" type="password" required autocomplete="current-password">
+      <button type="submit" class="add" style="margin-top:10px">Подключить</button>
+    </form>
+    <p class="empty" id="google-note" style="margin-top:8px"></p>
+  </section>
   <button type="button" id="reset" class="reset">Сбросить всё</button>
 </div>
 <script>
@@ -233,6 +245,53 @@ function load(){
   return { months:{} };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+const GURL = "teen-budget-google-url";
+const GPASS = "teen-budget-google-pass";
+function googleUrl(){ return (localStorage.getItem(GURL) || "").trim(); }
+function googlePass(){ return localStorage.getItem(GPASS) || ""; }
+function googleOn(){ return googleUrl().startsWith("https://script.google.com/"); }
+function asIso(value){
+  const s = String(value || "");
+  const iso = s.match(/\d{4}-\d{2}-\d{2}/);
+  if (iso) return iso[0];
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return isoDate(d);
+  return "";
+}
+async function postGoogle(body){
+  if (!googleOn()) return;
+  await fetch(googleUrl(), {
+    method: "POST",
+    redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ password: googlePass(), ...body })
+  });
+}
+async function pullGoogle(){
+  const res = await fetch(googleUrl() + "?password=" + encodeURIComponent(googlePass()));
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(String(data.error || "нет ответа").replace(/^Error:\s*/, ""));
+  const next = { months:{} };
+  const put = key => {
+    if (!next.months[key]) next.months[key] = blankMonth();
+    return next.months[key];
+  };
+  (data.months || []).forEach(row => {
+    const box = put(String(row.month));
+    box.limit = row.limit ?? "";
+    box.goal = row.goal ?? "";
+  });
+  (data.operations || []).forEach(op => {
+    const date = asIso(op.date);
+    if (!date) return;
+    const box = put(date.slice(0, 7));
+    const item = { id:String(op.id), title:op.title, amount:op.amount, currency:op.currency || "RUB", date, category:op.category || "" };
+    (op.type === "доход" ? box.incomes : box.expenses).push(item);
+  });
+  db = next;
+  save();
+  render();
+}
 function blankMonth(){ return { incomes:[], expenses:[], limit:"", goal:"" }; }
 function ensure(key){
   if (!db.months[key]) db.months[key] = blankMonth();
@@ -479,7 +538,17 @@ function add(kind, data){
   ensure(key)[kind].unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), ...data });
   const [y,m] = key.split("-").map(Number);
   cursor = new Date(y, m-1, 1);
+  const item = ensure(key)[kind][0];
   render();
+  postGoogle({
+    action: "add",
+    item: {
+      id: item.id, date: item.date,
+      type: kind === "incomes" ? "доход" : "расход",
+      title: item.title, category: item.category || "",
+      amount: item.amount, currency: item.currency
+    }
+  });
 }
 
 function bindForm(id, kind, extra){
@@ -504,17 +573,37 @@ function onDelete(e){
   const m = month();
   m[btn.dataset.kind] = m[btn.dataset.kind].filter(x => x.id !== btn.dataset.id);
   render();
+  postGoogle({ action: "delete", id: btn.dataset.id });
 }
 document.getElementById("prev").onclick = () => { cursor.setMonth(cursor.getMonth()-1); render(); };
 document.getElementById("next").onclick = () => { cursor.setMonth(cursor.getMonth()+1); render(); };
-document.getElementById("limit").addEventListener("input", e => { month().limit = e.target.value; render(); });
-document.getElementById("goal").addEventListener("input", e => { month().goal = e.target.value; render(); });
+function pushMonth(){
+  postGoogle({ action: "month", month: keyOf(cursor), limit: month().limit, goal: month().goal });
+}
+document.getElementById("limit").addEventListener("input", e => { month().limit = e.target.value; render(); pushMonth(); });
+document.getElementById("goal").addEventListener("input", e => { month().goal = e.target.value; render(); pushMonth(); });
 document.getElementById("reset").onclick = () => {
   if (!confirm("Сбросить все доходы, расходы, лимиты и цели?")) return;
+  Object.values(db.months).forEach(m => {
+    (m.incomes || []).concat(m.expenses || []).forEach(item => postGoogle({ action: "delete", id: item.id }));
+  });
   db = { months: {} };
   save();
   render();
 };
+document.getElementById("google-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const note = document.getElementById("google-note");
+  localStorage.setItem(GURL, document.getElementById("google-url").value.trim());
+  localStorage.setItem(GPASS, document.getElementById("google-pass").value);
+  note.textContent = "Подключаю…";
+  try {
+    await pullGoogle();
+    note.textContent = "Подключено. Новые записи попадают в таблицу.";
+  } catch (err) {
+    note.textContent = "Не подключилось: " + err.message;
+  }
+});
 
 document.querySelectorAll('input[type="date"]').forEach(el => { el.value = isoDate(new Date()); });
 
@@ -534,7 +623,17 @@ async function loadCbr(){
   }
   render();
 }
-loadCbr();
+loadCbr().then(async () => {
+  if (googleUrl()) document.getElementById("google-url").value = googleUrl();
+  if (googlePass()) document.getElementById("google-pass").value = googlePass();
+  if (!googleOn()) return;
+  try {
+    await pullGoogle();
+    document.getElementById("google-note").textContent = "Подключено. Новые записи попадают в таблицу.";
+  } catch (err) {
+    document.getElementById("google-note").textContent = "Не подключилось: " + err.message;
+  }
+});
 </script>
 </body>
 </html>
