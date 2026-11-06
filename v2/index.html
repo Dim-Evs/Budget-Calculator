@@ -259,14 +259,14 @@ function asIso(value){
   return "";
 }
 async function postGoogle(body){
-  if (!googleOn()) return;
-  await fetch(googleUrl(), {
-    method: "POST",
-    mode: "no-cors",
-    redirect: "follow",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ password: googlePass(), ...body })
-  });
+  if (!googleOn()) return null;
+  const url = googleUrl()
+    + "?password=" + encodeURIComponent(googlePass())
+    + "&payload=" + encodeURIComponent(JSON.stringify(body));
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.error) throw new Error(String(data.error).replace(/^Error:\s*/, ""));
+  return data;
 }
 async function pushSnapshot(snapshot){
   const months = snapshot.months || {};
@@ -554,7 +554,7 @@ function add(kind, data){
   cursor = new Date(y, m-1, 1);
   const item = ensure(key)[kind][0];
   render();
-  postGoogle({
+  const sent = {
     action: "add",
     item: {
       id: item.id, date: item.date,
@@ -562,6 +562,17 @@ function add(kind, data){
       title: item.title, category: item.category || "",
       amount: item.amount, currency: item.currency
     }
+  };
+  postGoogle(sent).then(data => {
+    const note = document.getElementById("google-note");
+    if (!googleOn() || !note) return;
+    const saved = data && (data.operations || []).some(op => String(op.id) === String(item.id));
+    note.textContent = saved
+      ? "Запись попала в таблицу."
+      : "В таблицу не записалось. В Apps Script замените код на новый из инструкции и нажмите Развернуть → Управление развёртываниями → карандаш → Новая версия → Развернуть.";
+  }).catch(err => {
+    const note = document.getElementById("google-note");
+    if (note) note.textContent = "В таблицу не записалось: " + err.message;
   });
 }
 
