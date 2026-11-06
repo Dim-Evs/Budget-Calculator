@@ -45,7 +45,8 @@ input,select{
 .row input{flex:1;min-width:0}
 .row select{width:88px;flex:none}
 .row select[name="currency"]{width:max-content;padding-right:4px}
-.row input[type="date"]{width:148px;flex:none}
+.row.action-row input[type="date"]{flex:1;width:auto}
+.row.action-row button{flex:none}
 .row.title-row input{flex:1 0 100%}
 .row button{
   height:44px;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer;padding:0 14px
@@ -73,7 +74,6 @@ input,select{
   .month strong{min-width:0;font-size:15px}
   .tiles,.tiles.three,.limits,.panel,.feeds{grid-template-columns:1fr}
   .row{flex-wrap:wrap}
-  .row input[type="date"]{flex:1;width:auto}
 }
 </style>
 </head>
@@ -151,14 +151,16 @@ input,select{
           <input name="title" placeholder="Источник" required>
         </div>
         <div class="row">
-        <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
-        <select name="currency" aria-label="Валюта">
-          <option value="RUB">₽</option>
-          <option value="USD">$</option>
-          <option value="EUR">€</option>
-        </select>
-        <input name="date" type="date" aria-label="День дохода" required>
-        <button type="submit">+</button>
+          <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
+          <select name="currency" aria-label="Валюта">
+            <option value="RUB">₽</option>
+            <option value="USD">$</option>
+            <option value="EUR">€</option>
+          </select>
+        </div>
+        <div class="row action-row">
+          <input name="date" type="date" aria-label="День дохода" required>
+          <button type="submit">+</button>
         </div>
       </form>
       <div class="list" id="in-list"></div>
@@ -170,42 +172,35 @@ input,select{
           <input name="title" placeholder="На что" required>
         </div>
         <div class="row">
-        <select name="category" aria-label="Категория">
-          <option>Еда</option>
-          <option>Транспорт</option>
-          <option>Подписки</option>
-          <option>Одежда</option>
-          <option>Развлечения</option>
-          <option>Другое</option>
-        </select>
-        <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
-        <select name="currency" aria-label="Валюта">
-          <option value="RUB">₽</option>
-          <option value="USD">$</option>
-          <option value="EUR">€</option>
-        </select>
-        <input name="date" type="date" aria-label="День расхода" required>
-        <button type="submit">+</button>
+          <select name="category" aria-label="Категория">
+            <option>Еда</option>
+            <option>Транспорт</option>
+            <option>Подписки</option>
+            <option>Одежда</option>
+            <option>Развлечения</option>
+            <option>Другое</option>
+          </select>
+          <input name="amount" type="number" min="0.01" step="0.01" placeholder="Сумма" required>
+          <select name="currency" aria-label="Валюта">
+            <option value="RUB">₽</option>
+            <option value="USD">$</option>
+            <option value="EUR">€</option>
+          </select>
+        </div>
+        <div class="row action-row">
+          <input name="date" type="date" aria-label="День расхода" required>
+          <button type="submit">+</button>
         </div>
       </form>
       <div class="list" id="out-list"></div>
     </div>
   </section>
-  <section class="card">
-    <h2>Таблица Google</h2>
-    <p class="empty">Один раз вставьте адрес и пароль. После этого телефон и компьютер показывают один бюджет.</p>
-    <form id="google-form">
-      <label for="google-url">Адрес</label>
-      <input id="google-url" type="url" required value="https://script.google.com/macros/s/AKfycbwSX4WugnhNJ7oh_u9AjvkUzutsyGz_Tm6l9q06uJ61iAC7RMNTpxHGJ-qKmsa2JeIZOw/exec">
-      <label for="google-pass" style="margin-top:10px">Пароль</label>
-      <input id="google-pass" type="password" required autocomplete="current-password">
-      <button type="submit" class="add" style="margin-top:10px">Подключить</button>
-    </form>
-    <p class="empty" id="google-note" style="margin-top:8px"></p>
-  </section>
+  <p class="empty" id="google-note" style="margin:0 0 14px"></p>
   <button type="button" id="reset" class="reset">Сбросить всё</button>
 </div>
 <script>
+const GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbxBu2WRJLL5nu67iLTX_IsY7q6v-qN4V5rNDAc293-x3OSaKaGHQEr3pfJcjHKVmE-1ow/exec";
+const GOOGLE_PASSWORD = "пароль";
 const FALLBACK = { RUB: 1, USD: 90, EUR: 100 };
 let rates = { ...FALLBACK };
 const CATS = ["Еда","Транспорт","Подписки","Одежда","Развлечения","Другое"];
@@ -245,10 +240,8 @@ function load(){
   return { months:{} };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
-const GURL = "teen-budget-google-url";
-const GPASS = "teen-budget-google-pass";
-function googleUrl(){ return (localStorage.getItem(GURL) || "").trim(); }
-function googlePass(){ return localStorage.getItem(GPASS) || ""; }
+function googleUrl(){ return (GOOGLE_SCRIPT || "").trim(); }
+function googlePass(){ return GOOGLE_PASSWORD || ""; }
 function googleOn(){ return googleUrl().startsWith("https://script.google.com/"); }
 function asIso(value){
   const s = String(value || "");
@@ -616,27 +609,6 @@ document.getElementById("reset").onclick = () => {
   save();
   render();
 };
-document.getElementById("google-form").addEventListener("submit", async e => {
-  e.preventDefault();
-  const note = document.getElementById("google-note");
-  localStorage.setItem(GURL, document.getElementById("google-url").value.trim());
-  localStorage.setItem(GPASS, document.getElementById("google-pass").value);
-  note.textContent = "Подключаю…";
-  const local = JSON.parse(JSON.stringify(db));
-  try {
-    await pullGoogle();
-    const remoteEmpty = !Object.values(db.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
-    const localHas = Object.values(local.months).some(m => (m.incomes || []).length || (m.expenses || []).length);
-    if (remoteEmpty && localHas){
-      await pushSnapshot(local);
-      await pullGoogle();
-    }
-    note.textContent = "Подключено. Новые записи попадают в таблицу.";
-  } catch (err) {
-    note.textContent = "Не подключилось: " + err.message;
-  }
-});
-
 document.querySelectorAll('input[type="date"]').forEach(el => { el.value = isoDate(new Date()); });
 
 async function loadCbr(){
@@ -656,8 +628,6 @@ async function loadCbr(){
   render();
 }
 loadCbr().then(async () => {
-  if (googleUrl()) document.getElementById("google-url").value = googleUrl();
-  if (googlePass()) document.getElementById("google-pass").value = googlePass();
   if (!googleOn()) return;
   const local = JSON.parse(JSON.stringify(db));
   try {
