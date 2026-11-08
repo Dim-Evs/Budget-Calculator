@@ -31,6 +31,9 @@ h2{margin:0 0 8px;font-size:18px}
 .tile span{display:block;color:var(--muted);font-size:13px}
 .tile b{display:block;margin-top:6px;font-size:20px}
 .limits{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.limit-row{display:flex;gap:8px;align-items:center}
+.limit-row input{flex:1}
+.limit-row button{height:44px;width:44px;flex:none;border:0;border-radius:12px;background:var(--mint);color:#fff;font-weight:700;cursor:pointer}
 label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
 input,select{
   width:100%;height:44px;border:1px solid var(--line);border-radius:12px;padding:0 12px;
@@ -150,11 +153,17 @@ input,select{
   <section class="limits">
     <div>
       <label for="limit">Лимит трат на месяц, ₽</label>
-      <input id="limit" type="number" min="0" step="1" placeholder="Например, 15000">
+      <div class="limit-row">
+        <input id="limit" type="number" min="0" step="1" placeholder="Например, 15000">
+        <button type="button" id="save-limit" aria-label="Записать лимит">+</button>
+      </div>
     </div>
     <div>
       <label for="goal">Цель накопления за этот месяц, ₽</label>
-      <input id="goal" type="number" min="0" step="1" placeholder="Например, 20000">
+      <div class="limit-row">
+        <input id="goal" type="number" min="0" step="1" placeholder="Например, 20000">
+        <button type="button" id="save-goal" aria-label="Записать цель">+</button>
+      </div>
       <div class="goal-bar" aria-hidden="true"><i id="goal-bar"></i></div>
       <p class="empty" id="goal-hint" style="margin:6px 0 0"></p>
     </div>
@@ -624,16 +633,21 @@ function onDelete(e){
 }
 document.getElementById("prev").onclick = () => { cursor.setMonth(cursor.getMonth()-1); render(); };
 document.getElementById("next").onclick = () => { cursor.setMonth(cursor.getMonth()+1); render(); };
-let monthTimer;
-function pushMonth(){
-  clearTimeout(monthTimer);
+function saveLimits(which){
+  const m = month();
+  if (which === "limit") m.limit = document.getElementById("limit").value;
+  if (which === "goal") m.goal = document.getElementById("goal").value;
   const key = keyOf(cursor);
-  const limit = month().limit;
-  const goal = month().goal;
-  monthTimer = setTimeout(() => postGoogle({ action: "month", month: key, limit, goal }), 400);
+  render();
+  const note = document.getElementById("google-note");
+  postGoogle({ action: "month", month: key, limit: m.limit, goal: m.goal }).then(() => {
+    if (note) note.textContent = which === "limit" ? "Лимит записан в таблицу." : "Цель записана в таблицу.";
+  }).catch(err => {
+    if (note) note.textContent = "В таблицу не записалось: " + err.message;
+  });
 }
-document.getElementById("limit").addEventListener("input", e => { month().limit = e.target.value; render(); pushMonth(); });
-document.getElementById("goal").addEventListener("input", e => { month().goal = e.target.value; render(); pushMonth(); });
+document.getElementById("save-limit").onclick = () => saveLimits("limit");
+document.getElementById("save-goal").onclick = () => saveLimits("goal");
 document.getElementById("reset").onclick = () => {
   if (!confirm("Сбросить все доходы, расходы, лимиты и цели?")) return;
   Object.values(db.months).forEach(m => {
