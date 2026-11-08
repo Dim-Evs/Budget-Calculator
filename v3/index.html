@@ -301,6 +301,7 @@ async function postGoogle(body){
   if (!googleOn()) return null;
   const url = googleUrl()
     + "?" + authQuery()
+    + "&t=" + Date.now()
     + "&payload=" + encodeURIComponent(JSON.stringify(body));
   const res = await fetch(url);
   const data = await res.json();
@@ -311,7 +312,7 @@ async function pushSnapshot(snapshot){
   const months = snapshot.months || {};
   for (const key of Object.keys(months)){
     const box = months[key];
-    if (box.limit || box.goal) await postGoogle({ action: "month", month: key, limit: box.limit || "", goal: box.goal || "" });
+    if (box.limit || box.goal) await postGoogle({ action: "month", month: "M" + key, limit: box.limit || "", goal: box.goal || "" });
     for (const item of box.incomes || []){
       await postGoogle({ action: "add", item: { id: item.id, date: item.date, type: "доход", title: item.title, category: "", amount: item.amount, currency: item.currency } });
     }
@@ -321,7 +322,7 @@ async function pushSnapshot(snapshot){
   }
 }
 async function pullGoogle(){
-  const res = await fetch(googleUrl() + "?" + authQuery());
+  const res = await fetch(googleUrl() + "?" + authQuery() + "&t=" + Date.now(), { cache: "no-store" });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(String(data.error || "нет ответа").replace(/^Error:\s*/, ""));
   const next = { months:{} };
@@ -648,7 +649,9 @@ function saveLimits(which){
   const key = keyOf(cursor);
   render();
   const note = document.getElementById("google-note");
-  postGoogle({ action: "month", month: key, limit: m.limit, goal: m.goal }).then(() => {
+  postGoogle({ action: "month", month: "M" + key, limit: m.limit, goal: m.goal }).then(data => {
+    const saved = data && (data.months || []).some(row => monthKey(row.month) === key);
+    if (!saved) throw new Error("в листе «Месяцы» нет строки этого месяца");
     if (note) note.textContent = which === "limit" ? "Лимит записан в таблицу." : "Цель записана в таблицу.";
   }).catch(err => {
     if (note) note.textContent = "В таблицу не записалось: " + err.message;
