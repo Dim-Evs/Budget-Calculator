@@ -252,6 +252,14 @@ let chart;
 function pad(n){ return String(n).padStart(2,"0"); }
 function isoDate(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
 function keyOf(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1); }
+function monthKey(value){
+  const s = String(value || "");
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return keyOf(d);
+  const m = s.match(/(\d{4})-(\d{2})/);
+  return m ? m[1] + "-" + m[2] : s;
+}
 function daysInMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); }
 function monthTitle(key){
   const [y,m] = key.split("-").map(Number);
@@ -322,9 +330,9 @@ async function pullGoogle(){
     return next.months[key];
   };
   (data.months || []).forEach(row => {
-    const box = put(String(row.month).slice(0, 7));
-    box.limit = row.limit ?? "";
-    box.goal = row.goal ?? "";
+    const box = put(monthKey(row.month));
+    if (row.limit !== "" && row.limit != null) box.limit = row.limit;
+    if (row.goal !== "" && row.goal != null) box.goal = row.goal;
   });
   (data.operations || []).forEach(op => {
     const date = asIso(op.date);
