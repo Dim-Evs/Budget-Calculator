@@ -97,11 +97,9 @@ input,select{
 <div class="gate" id="gate">
   <form class="card" id="login-form">
     <h1>Вход</h1>
-    <p>Логин и пароль выдаёт тот, кто ведёт таблицу.</p>
+    <p>Логин выдаёт тот, кто ведёт таблицу.</p>
     <label for="login">Логин</label>
     <input id="login" name="login" autocomplete="username" required>
-    <label for="password">Пароль</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required>
     <button class="add" type="submit" style="width:100%;margin-top:12px">Войти</button>
     <p class="err" id="login-err"></p>
   </form>
@@ -284,7 +282,7 @@ function save(){ if (session) localStorage.setItem(storageKey(), JSON.stringify(
 function googleUrl(){ return (GOOGLE_SCRIPT || "").trim(); }
 function googleOn(){ return googleUrl().startsWith("https://script.google.com/") && !!session; }
 function authQuery(){
-  return "login=" + encodeURIComponent(session.login) + "&password=" + encodeURIComponent(session.password);
+  return "login=" + encodeURIComponent(session.login);
 }
 function asIso(value){
   const s = String(value || "");
@@ -725,7 +723,7 @@ document.getElementById("login-form").addEventListener("submit", async e => {
   e.preventDefault();
   const err = document.getElementById("login-err");
   err.textContent = "Проверяю…";
-  session = { login: e.target.login.value.trim(), password: e.target.password.value };
+  session = { login: e.target.login.value.trim() };
   try {
     await pullGoogle();
     sessionStorage.setItem(SESSION, JSON.stringify(session));
