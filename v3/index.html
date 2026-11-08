@@ -337,6 +337,15 @@ async function pullGoogle(){
   });
   (data.operations || []).forEach(op => {
     const date = asIso(op.date);
+    if (op.type === "лимит" || op.type === "цель") {
+      const found = String(op.title || "").match(/\d{4}-\d{2}/);
+      const key = found ? found[0] : (date || "").slice(0, 7);
+      if (!key) return;
+      const box = put(key);
+      if (op.type === "лимит") box.limit = op.amount;
+      else box.goal = op.amount;
+      return;
+    }
     if (!date) return;
     const box = put(date.slice(0, 7));
     const item = { id:String(op.id), title:op.title, amount:op.amount, currency:op.currency || "RUB", date, category:op.category || "" };
@@ -647,11 +656,20 @@ function saveLimits(which){
   if (which === "limit") m.limit = document.getElementById("limit").value;
   if (which === "goal") m.goal = document.getElementById("goal").value;
   const key = keyOf(cursor);
+  const kind = which === "limit" ? "лимит" : "цель";
+  const id = kind + "-" + key;
   render();
   const note = document.getElementById("google-note");
-  postGoogle({ action: "month", month: "M" + key, limit: m.limit, goal: m.goal }).then(data => {
-    const saved = data && (data.months || []).some(row => monthKey(row.month) === key);
-    if (!saved) throw new Error("в листе «Месяцы» нет строки этого месяца");
+  postGoogle({ action: "delete", id }).then(() => postGoogle({
+    action: "add",
+    item: {
+      id, date: key + "-15", type: kind,
+      title: (which === "limit" ? "Лимит " : "Цель ") + key,
+      category: "", amount: which === "limit" ? m.limit : m.goal, currency: "RUB"
+    }
+  })).then(data => {
+    const saved = data && (data.operations || []).some(op => String(op.id) === id);
+    if (!saved) throw new Error("строка не появилась в листе «Операции»");
     if (note) note.textContent = which === "limit" ? "Лимит записан в таблицу." : "Цель записана в таблицу.";
   }).catch(err => {
     if (note) note.textContent = "В таблицу не записалось: " + err.message;
