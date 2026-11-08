@@ -77,7 +77,9 @@ input,select{
 @media(max-width:800px){
   header{flex-direction:column;align-items:flex-start}
   .month{width:auto;max-width:100%}
+  .month{flex-wrap:wrap}
   .month button{width:40px;padding:0}
+  #logout{width:auto;padding:0 12px}
   .month button span{display:none}
   .month strong{min-width:0;font-size:15px}
   .tiles,.tiles.three,.limits,.panel,.feeds{grid-template-columns:1fr}
@@ -311,7 +313,7 @@ async function pullGoogle(){
     return next.months[key];
   };
   (data.months || []).forEach(row => {
-    const box = put(String(row.month));
+    const box = put(String(row.month).slice(0, 7));
     box.limit = row.limit ?? "";
     box.goal = row.goal ?? "";
   });
@@ -382,7 +384,7 @@ function render(){
   } else {
     goalTitle.textContent = "Осталось накопить до цели";
     goalLeft.textContent = money(left);
-    goalHint.textContent = "Собрано " + money(saved) + " из " + money(goal) + ". Добавите доход — полоска вырастет, добавите расход — уменьшится.";
+    goalHint.textContent = "Собрано " + money(saved) + " из " + money(goal) + ".";
     bar.style.width = Math.min(100, saved / goal * 100) + "%";
   }
 
@@ -622,8 +624,13 @@ function onDelete(e){
 }
 document.getElementById("prev").onclick = () => { cursor.setMonth(cursor.getMonth()-1); render(); };
 document.getElementById("next").onclick = () => { cursor.setMonth(cursor.getMonth()+1); render(); };
+let monthTimer;
 function pushMonth(){
-  postGoogle({ action: "month", month: keyOf(cursor), limit: month().limit, goal: month().goal });
+  clearTimeout(monthTimer);
+  const key = keyOf(cursor);
+  const limit = month().limit;
+  const goal = month().goal;
+  monthTimer = setTimeout(() => postGoogle({ action: "month", month: key, limit, goal }), 400);
 }
 document.getElementById("limit").addEventListener("input", e => { month().limit = e.target.value; render(); pushMonth(); });
 document.getElementById("goal").addEventListener("input", e => { month().goal = e.target.value; render(); pushMonth(); });
@@ -698,4 +705,3 @@ if (session && session.login) enter();
 </script>
 </body>
 </html>
-
